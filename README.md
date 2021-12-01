@@ -1,7 +1,7 @@
 # offline-online-representation-learning
 This is the repository for Offline-Online Representation Learning for Reinforcement Learning.
 
-The base code is heavily borrowed from: <a href="">HERE</a>.
+The base code is heavily borrowed from: <a href="https://github.com/MHashemzadeh/Offline-Online-RL">HERE</a>.
 
 Run the code first to generate an offline dataset.
 
