@@ -1,38 +1,20 @@
-# import gym
 import numpy as np
 from dqn_agent import DQNAgent
-# from ttn_agent_online import TTNAgent_online
-#from ttn_agent_online_tc import TTNAgent_online_tc
 from mix_ttn_agent_online_offline import TTNAgent_online_offline_mix
-# from utils import plot_learning_curve, make_env
 import os
 import sys
 import random
 import gym
 import time
-# import matplotlib.pyplot as plt
 from collections import OrderedDict
 import itertools
 import copy
 import torch as T
 import argparse
-# import datetime as date
 from datetime import datetime
 from replay_memory import ReplayBuffer
 
-# np_load_old = np.load
 
-# modify the default parameters of np.load
-# np.load = lambda *a, **k: np_load_old(*a, allow_pickle=True, **k)
-
-# env_ = "catcher"
-#
-# if env_ == "catcher":
-#     from ple.games.catcher import Catcher
-# else:
-#     import gym
-
-######################################################
 def train_online(data_dir, starting_state_path,alg_type, hyper_num, data_length_num, mem_size, num_rep, offline, fqi_rep_num, num_step_ratio_mem, en,
           feature, method_sarsa,num_epi_per_itr,
                          fqi_reg_type, initial_batch, rnd, status):
@@ -73,11 +55,6 @@ def train_online(data_dir, starting_state_path,alg_type, hyper_num, data_length_
         env = gym.make('CartPole-v0')
         input_dim = env.observation_space.shape[0]
         num_act = 2
-
-    # rand_seed = num_rep * 32  # 332
-    # env.seed(rand_seed)
-    # T.manual_seed(rand_seed)
-    # np.random.seed(rand_seed)
 
     ## normolize states
     def process_state(state, normalize=True):
@@ -531,15 +508,8 @@ def train_offline_online(data_dir, starting_state_path, alg_type, hyper_num, dat
         input_dim = env.observation_space.shape[0]
         num_act = 2
 
-    # rand_seed = num_rep * 32  # 332
-    # env.seed(rand_seed)
-    # T.manual_seed(rand_seed)
-    # np.random.seed(rand_seed)
-
     ## normolize states
     def process_state(state, normalize=True):
-        # states = np.array([state['position'], state['vel']])
-
         if normalize:
             if en == "Acrobot":
                 states = np.array([state[0], state[1], state[2], state[3], state[4], state[5]])
@@ -591,7 +561,7 @@ def train_offline_online(data_dir, starting_state_path, alg_type, hyper_num, dat
                      }
 
     ## TTN
-    nnet_params = {"loss_features": 'reward',  # "next_reward_state", next_state, semi_MSTDE
+    nnet_params = {"loss_features": 'reward',  # "combined_mstde_next_reward", "combined_mstde_next_state", "reward", next_state, semi_MSTDE
                    "beta1": 0.0,
                    "beta2": 0.99,
                    "eps_init": 1.0,
@@ -697,11 +667,6 @@ def train_offline_online(data_dir, starting_state_path, alg_type, hyper_num, dat
         with open(log_file + ".txt", 'w') as f:
             print("Start! Seed: {}".format(rand_seed), file=f)
 
-        #saved_state_list = saved_state_list_all[rep * num_epi_per_itr:rep * num_epi_per_itr + num_epi_per_itr]
-
-        #############################################
-        start_run_time = time.perf_counter()
-
         if TTN:
 
             nn = TTNAgent_online_offline_mix(gamma, nnet_params=nnet_params, other_params=params,
@@ -759,38 +724,16 @@ def train_offline_online(data_dir, starting_state_path, alg_type, hyper_num, dat
         run_episode_length = []
         run_avg_episode_values = []
 
-        run_losses = []
-
         for itr in range(1):
-
-            ## do update on step offline before running the agent
-
-            # if not os.path.isfile("feature_{}_{}_{}_{}".format(alg, en, mem_size, num_updates_pretrain) + ".pt"):
-            if not os.path.isfile("feature_{}_{}_{}".format(alg, en, mem_size) + ".pt"):
+            if not os.path.isfile("feature_{}_{}_{}".format(alg, en, mem_size) + ".pt"): # look for checkpoint.
 
                 if TTN:
+                    # offline part.
+                    nn.loss_features = "combined_mstde_next_state"
                     loss = nn.learn()
 
                 else:  # DQN
                     loss = nn.learn()
-
-                loss1 = loss
-                diff_loss = 1
-                t = 0
-
-                # while t < num_updates_pretrain: # and diff_loss> epsilon_stop_training:
-                #     for j in range(params["update_freq"] + 5):
-                #         if TTN:
-                #             loss = nn.learn()
-                #
-                #         else:  # DQN
-                #             loss = nn.learn()
-                #
-                #     diff_loss = abs(loss-loss1)
-                #     print(loss)
-                #     print(diff_loss)
-                #     loss1= loss
-                #     t += 1
 
                 batch_size = 64
                 for j in range(num_updates_pretrain): #num_updates_pretrain = num_epoch = 100
@@ -801,6 +744,8 @@ def train_offline_online(data_dir, starting_state_path, alg_type, hyper_num, dat
                     for itr in range(num_iteration_feature):
 
                         if TTN:
+                            # offline part.
+                            nn.loss_features = "combined_mstde_next_state"
                             loss = nn.learn_nn_feature_fqi(itr, shuffle_index)
                             print("Loss: ", loss.item())
 
@@ -891,11 +836,7 @@ def train_offline_online(data_dir, starting_state_path, alg_type, hyper_num, dat
                     episodes += 1
 
                     env.reset()
-                    # env.state = saved_state_list[count_10epi]
-                    # state_unnormal = env.state
-                    # state = process_state(state_unnormal)
 
-                    # state_unnormal = env.unwrapped.state
                     state_unnormal = env.reset()
                     state = process_state(state_unnormal)
                     if TTN:
@@ -925,6 +866,8 @@ def train_offline_online(data_dir, starting_state_path, alg_type, hyper_num, dat
                         nn.memory.store_transition(prev_state, np.squeeze(prev_action), reward, state, int(done))
 
                     if TTN:
+                        # online part
+                        nn.loss_features = "semi_MSTDE"
                         loss = nn.learn()
 
                     else:  # DQN
@@ -1277,24 +1220,6 @@ def train_offline(data_dir, starting_state_path, alg_type, hyper_num, data_lengt
 
                 else:  # DQN
                     loss = nn.learn()
-
-                loss1 = loss
-                diff_loss = 1
-                t = 0
-
-                # while t < num_updates_pretrain: # and diff_loss> epsilon_stop_training:
-                #     for j in range(params["update_freq"] + 5):
-                #         if TTN:
-                #             loss = nn.learn()
-                #
-                #         else:  # DQN
-                #             loss = nn.learn()
-                #
-                #     diff_loss = abs(loss-loss1)
-                #     print(loss)
-                #     print(diff_loss)
-                #     loss1= loss
-                #     t += 1
 
                 batch_size = 64
                 for j in range(num_updates_pretrain): #num_updates_pretrain = num_epoch = 100

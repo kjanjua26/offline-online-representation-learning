@@ -1,17 +1,11 @@
-# import gym
 import numpy as np
 from dqn_agent import DQNAgent
-# from ttn_agent_online import TTNAgent_online
 from mix_ttn_agent_online_offline import TTNAgent_online_offline_mix
-# from utils import plot_learning_curve, make_env
 import os
-import sys
-import random
 import time
 # import matplotlib.pyplot as plt
 from collections import OrderedDict
 import itertools
-import copy
 import torch as T
 import argparse
 # import datetime as date
@@ -20,21 +14,9 @@ from replay_memory import ReplayBuffer
 from training3 import train_offline_online, train_online, train_offline
 import training3
 np_load_old = np.load
-
 # modify the default parameters of np.load
 np.load = lambda *a, **k: np_load_old(*a, allow_pickle=True)
-# np.load = lambda *a,**k: np_load_old(*a,**k,allow_pickle=True)
 import gym
-# from numba import jit
-# import nvidia_smi
-
-# env_ = "catcher"
-#
-# if env_ == "catcher":
-#     from ple.games.catcher import Catcher
-#     from ple import PLE
-# else:
-#     import gym
 
 def main(alg_type, hyper_num, data_length_num, mem_size, num_rep, offline, fqi_rep_num, num_step_ratio_mem, en,
          dirfeature, feature, num_epoch ,batch_size, replace_target_cnt,target_separate, method_sarsa, data_dir, learning_feat):
@@ -127,17 +109,10 @@ def main(alg_type, hyper_num, data_length_num, mem_size, num_rep, offline, fqi_r
         env = gym.make('CartPole-v0')
         input_dim = env.observation_space.shape[0]
         num_act = 2
-    # elif en == "catcher":
-    #     game = Catcher(init_lives=1)
-    #     p = PLE(game, fps=30, state_preprocessor=process_state, display_screen=False, reward_values=ple_rewards,
-    #             rng=rand_seed)
-
-
 
     env.seed(rand_seed)
     T.manual_seed(rand_seed)
     np.random.seed(rand_seed)
-
 
 
     # dqn:
@@ -178,10 +153,6 @@ def main(alg_type, hyper_num, data_length_num, mem_size, num_rep, offline, fqi_r
                                     ("data_length", [data_length]),
                                     ("fqi_rep", [fqi_rep]),
                                     ])
-
-    # files_name = "Data//Data_env_{}_mem_size_{}_date_{}_hyper_{}".format(en, mem_size, datetime.today().strftime(
-    #                                                                                         "%d_%m_%Y"), hyper_num
-    #                                                                                     )
 
     files_name = "Data//{}_{}".format(en, mem_size)
 

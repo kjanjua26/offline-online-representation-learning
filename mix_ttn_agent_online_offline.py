@@ -206,13 +206,7 @@ class TTNAgent_online_offline_mix(object):
             return
 
         for mmm in range(1):
-
-            # self.learn_step_counter += 1
-
-            # self.q_eval.optimizer.zero_grad()
             self.q_eval.zero_grad()
-
-            # self.replace_target_network()
 
             states, actions, rewards, states_, actions_, dones = self.sample_memory_nextaction()
             indices = np.arange(self.batch_size)
@@ -225,31 +219,18 @@ class TTNAgent_online_offline_mix(object):
                 self.min = T.min(features_all)
             if self.max < T.max(features_all):
                 self.max = T.max(features_all)
-            # print(self.min, self.max)
 
-            # pred_states_all = pred_states_all.view(-1, self.n_actions, self.input_dims)
-            # pred_states = pred_states_all[indices, actions,:]
-
-            # q_next = self.q_next.forward(states_).max(dim=1)[0]
-
-            # loss = 0
             if self.loss_features == "semi_MSTDE":
                 with torch.no_grad():
-                    q_next_all, features_next, pred_states_next = self.q_eval.forward(states_)
-                    # q_next = q_next_all.max(dim=1)[0]
+                    q_next_all, _, _ = self.q_eval.forward(states_)
                     q_next = q_next_all[indices, actions_]
-                    # print(q_next[dones])
                     q_next[dones] = 0.0
 
                     q_target = rewards + self.gamma * q_next
 
                 loss = self.q_eval.loss(q_pred, q_target).to(self.q_eval.device)
-                # print(q_pred.data, q_target.data)
                 loss.backward()
                 self.q_eval.optimizer.step()
-
-                # loss = self.q_eval.loss(q_target, q_pred).to(self.q_eval.device)
-                # loss = self.q_eval.loss(q_pred, q_target).to(self.q_eval.device)
 
             if self.loss_features == "reward":  # reward loss
                 loss = self.q_eval.loss(rewards, q_pred).to(self.q_eval.device)
@@ -257,18 +238,34 @@ class TTNAgent_online_offline_mix(object):
                 self.q_eval.optimizer.step()
 
             if self.loss_features == "next_state":  # next state loss
-                # loss = self.q_eval.loss(states_, pred_states.squeeze()).to(self.q_eval.device)
-
-                # _ , _, pred_states_next = self.q_eval.forward(states)
                 pred_states_next_re = pred_states_all.view(-1, self.n_actions, self.input_dims)[indices, actions, :]
                 loss = self.q_eval.loss((states_), (pred_states_next_re.squeeze())).to(self.q_eval.device)
-                # print(q_pred.data, q_target.data)
                 loss.backward()
                 self.q_eval.optimizer.step()
-            #
-            # loss.backward()
-            # self.q_eval.optimizer.step()
-            # do update for q_next()
+            
+            if self.loss_features == "combined_mstde_next_state":
+                # mstde loss
+                with torch.no_grad():
+                    q_next_all, _, _ = self.q_eval.forward(states_)
+                    q_next = q_next_all[indices, actions_]
+                    q_next[dones] = 0.0
+
+                    q_target = rewards + self.gamma * q_next
+
+                loss_mstde = self.q_eval.loss(q_pred, q_target).to(self.q_eval.device)
+                
+                # now next state loss
+                pred_states_next_re = pred_states_all.view(-1, self.n_actions, self.input_dims)[indices, actions, :]
+                loss_next_state = self.q_eval.loss((states_),(pred_states_next_re.squeeze())).to(self.q_eval.device)
+
+                #TODO: try weighting
+                loss = loss_mstde + loss_next_state
+                loss.backward()
+                self.q_eval.optimizer.step()
+            
+            if self.loss_features == "combined_mstde_next_reward":
+                pass
+            
 
         # for FQI:
         if (self.learn_step_counter + 2) % self.update_freq == 0:
@@ -423,9 +420,6 @@ class TTNAgent_online_offline_mix(object):
             loss.backward()
             self.q_eval.optimizer.step()
 
-
-
-
             # loss = self.q_eval.loss(q_target, q_pred).to(self.q_eval.device)
             # loss = self.q_eval.loss(q_pred, q_target).to(self.q_eval.device)
 
@@ -443,10 +437,31 @@ class TTNAgent_online_offline_mix(object):
             # print(q_pred.data, q_target.data)
             loss.backward()
             self.q_eval.optimizer.step()
-        #
-        # loss.backward()
-        # self.q_eval.optimizer.step()
-        # do update for q_next()
+
+        if self.loss_features == "combined_mstde_next_state":
+            # mstde loss
+            with torch.no_grad():
+                if self.target_saprate:
+                    self.replace_target_network()
+                    q_next_all, _, _ = self.q_next.forward(states_)
+                else:
+                    q_next_all, _, _ = self.q_eval.forward(states_)
+                q_next = q_next_all[indices, actions_]
+                q_next[dones] = 0.0
+
+                q_target = rewards + self.gamma * q_next
+
+            loss_mstde = self.q_eval.loss(q_pred, q_target).to(self.q_eval.device)
+            
+            # now next state loss
+            pred_states_next_re = pred_states_all.view(-1, self.n_actions, self.input_dims)[indices, actions, :]
+            loss_next_state = self.q_eval.loss((states_),(pred_states_next_re.squeeze())).to(self.q_eval.device)
+
+            #TODO: try weighting
+            loss = loss_mstde + loss_next_state
+            loss.backward()
+            self.q_eval.optimizer.step()
+            
 
         self.decrement_epsilon()
 
@@ -516,10 +531,52 @@ class TTNAgent_online_offline_mix(object):
             # print(q_pred.data, q_target.data)
             loss.backward()
             self.q_eval.optimizer.step()
-        #
-        # loss.backward()
-        # self.q_eval.optimizer.step()
-        # do update for q_next()
+
+        if self.loss_features == "combined_mstde_next_state":
+            # mstde loss
+            with torch.no_grad():
+                if self.target_saprate:
+                    self.replace_target_network()
+                    q_next_all, _, _ = self.q_next.forward(states_)
+                else:
+                    q_next_all, _, _ = self.q_eval.forward(states_)
+                q_next = q_next_all[indices, actions_]
+                q_next[dones] = 0.0
+
+                q_target = rewards + self.gamma * q_next
+
+            loss_mstde = self.q_eval.loss(q_pred, q_target).to(self.q_eval.device)
+            
+            # now next state loss
+            pred_states_next_re = pred_states_all.view(-1, self.n_actions, self.input_dims)[indices, actions, :]
+            loss_next_state = self.q_eval.loss((states_),(pred_states_next_re.squeeze())).to(self.q_eval.device)
+
+            #TODO: try weighting
+            loss = loss_mstde + loss_next_state
+            loss.backward()
+            self.q_eval.optimizer.step()
+
+        if self.loss_features == "combined_mstde_next_reward":
+            # mstde loss
+            with torch.no_grad():
+                if self.target_saprate:
+                    self.replace_target_network()
+                    q_next_all, _, _ = self.q_next.forward(states_)
+                else:
+                    q_next_all, _, _ = self.q_eval.forward(states_)
+                q_next = q_next_all[indices, actions_]
+                q_next[dones] = 0.0
+
+                q_target = rewards + self.gamma * q_next
+
+            loss_mstde = self.q_eval.loss(q_pred, q_target).to(self.q_eval.device)
+
+            loss_reward = self.q_eval.loss(rewards, q_pred).to(self.q_eval.device)
+
+            #TODO: try weighting
+            loss = loss_mstde + loss_reward
+            loss.backward()
+            self.q_eval.optimizer.step()
 
         # for FQI:
         if (self.learn_step_counter + 2) % self.update_freq == 0:
@@ -600,8 +657,7 @@ class TTNAgent_online_offline_mix(object):
                         # b = T.mm(A_tr, T.unsqueeze(targets, 1)) + self.reg_A * T.reshape(T.transpose(self.lin_weights.reshape(-1, 1), 0, 1), [-1,1])
                         # print(A_tr.shape, A.shape, b.shape, targets.shape)
                         # new_weights = T.solve(b, A)[0]
-                        new_weights = T.lstsq(b, A)[
-                            0]  # T.mm(A.inverse(), b) #T.lstsq(b, A)[0]  #T.mm(A.inverse(), b) #tf.matrix_solve(A, b)
+                        new_weights = T.lstsq(b, A)[0]  # T.mm(A.inverse(), b) #T.lstsq(b, A)[0]  #T.mm(A.inverse(), b) #tf.matrix_solve(A, b)
 
                     elif self.fqi_reg_type == 'l2':
                         A_tr = (T.transpose(feats_current, 0, 1) / n).to(self.q_eval.device)
