@@ -649,7 +649,7 @@ class TTNAgent_online_offline_mix(object):
                     targets = rewards_all_ch + self.gamma * maxlinq
                     # targets = rewards_all_ch + self.gamma * expectedsarsa
 
-                    _, features_allmem, _ = self.q_eval.forward(states_all_ch)
+                    _, features_allmem, _, _ = self.q_eval.forward(states_all_ch)
                     features_allmem_bias = T.cat(
                         (features_allmem, T.ones((features_allmem.shape[0], 1)).to(self.q_eval.device)), 1)
 
@@ -957,6 +957,6 @@ class TTNAgent_online_offline_mix(object):
             self.learn_fqi(feature, nextfeature)
 
         else:
-            _, feature, _ = self.q_eval.forward(self.states_all_ch)
-            _, nextfeature, _ = self.q_eval.forward(self.states_all_ch_)
+            _, feature, _, _ = self.q_eval.forward(self.states_all_ch)
+            _, nextfeature, _, _ = self.q_eval.forward(self.states_all_ch_)
             self.learn_fqi(feature, nextfeature)
