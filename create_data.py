@@ -413,14 +413,6 @@ def main(alg_type, hyper_num, data_length_num, mem_size, num_rep, offline, fqi_r
     return files_name+'.npy'
 
 
-
-
-
-    ### ====>>>>> plot() ---> utility
-
-
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
@@ -546,7 +538,7 @@ if __name__ == "__main__":
                                  args.tr_offline, args.tr_fqi_rep_num,
                              args.tr_num_step_ratio_mem, args.en,
                              args.tr_feature, args.tr_method_sarsa, args.tr_num_epi_per_itr,
-                             args.tr_fqi_reg_type, args.tr_initial_batch, rnd, args.offline_online_training)
+                             args.tr_fqi_reg_type, args.tr_initial_batch, rnd, args.offline_online_training, args.tr_num_updates_pretrain)
 
 
 
