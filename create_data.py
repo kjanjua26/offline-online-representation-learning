@@ -472,18 +472,14 @@ if __name__ == "__main__":
 
     rnd = 0
 
-
     args = parser.parse_args()
 
     if args.data_dir == None:
-
-
         files_names_npy = main(args.algo, args.hyper_num, args.data_length_num, args.mem_size, args.num_rep, args.offline, args.fqi_rep_num,
          args.num_step_ratio_mem, args.en, args.dirfeature, args.feature, args.num_epoch,args.batch_size, args.replace_target_cnt, args.target_separate,
          args.method_sarsa, args.data_dir, args.learning_feat)
 
         args.data_dir, args.featurepath, args.starting_state_path = files_names_npy, files_names_npy, files_names_npy
-
 
         if rnd == 1:
             if args.mem_size == 10000:
@@ -504,8 +500,6 @@ if __name__ == "__main__":
                     args.data_dir = 'Data//cartpole_rnd_50000.npy'
                 if args.en == 'LunarLander':
                     args.data_dir = 'Data//LunarLander_rnd_50000.npy'
-
-
 
         if args.offline_online_training == 'offline_online':
             args.tr_offline = True
@@ -538,8 +532,4 @@ if __name__ == "__main__":
                                  args.tr_offline, args.tr_fqi_rep_num,
                              args.tr_num_step_ratio_mem, args.en,
                              args.tr_feature, args.tr_method_sarsa, args.tr_num_epi_per_itr,
-                             args.tr_fqi_reg_type, args.tr_initial_batch, rnd, args.offline_online_training, args.tr_num_updates_pretrain)
-
-
-
-
+                             args.tr_fqi_reg_type, args.tr_initial_batch, rnd, args.offline_online_training)

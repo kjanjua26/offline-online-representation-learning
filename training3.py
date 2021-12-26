@@ -15,11 +15,11 @@ from datetime import datetime
 from replay_memory import ReplayBuffer
 
 
-def train_online(data_dir, starting_state_path,alg_type, 
-                 hyper_num, data_length_num, mem_size, 
-                 num_rep, offline, fqi_rep_num, num_step_ratio_mem, en,
-                 feature, method_sarsa,num_epi_per_itr,
-                 fqi_reg_type, initial_batch, rnd, status, num_updates_pretrain):
+def train_online(data_dir, starting_state_path,alg_type, hyper_num,
+                 data_length_num, mem_size, num_rep, offline, 
+                 fqi_rep_num, num_step_ratio_mem, en,
+                 feature, method_sarsa,num_epi_per_itr, 
+                 fqi_reg_type, initial_batch, rnd, status):
 
     print("online", hyper_num, en, mem_size)
 
@@ -120,7 +120,7 @@ def train_online(data_dir, starting_state_path,alg_type,
                      }
 
     ## TTN
-    nnet_params = {"loss_features": 'semi_MSTDE',  # "next_reward_state", next_state, semi_MSTDE
+    nnet_params = {"loss_features": 'next_state',  # "next_reward_state", next_state, semi_MSTDE
                    "beta1": 0.0,
                    "beta2": 0.99,
                    "eps_init": 1.0,
@@ -327,11 +327,8 @@ def train_online(data_dir, starting_state_path,alg_type,
             i = 0
 
             while episodes < num_epi_per_itr + 1:
-
                 i += 1
-
                 if done:
-
                     run_returns.append(ret)
                     run_vals.append(val)
                     run_episode_length.append(episode_length)
@@ -389,19 +386,11 @@ def train_online(data_dir, starting_state_path,alg_type,
                     else:
                         nn.memory.store_transition(prev_state, np.squeeze(prev_action), reward, state, int(done))
 
-                    batch_size = 64
-                    for _ in range(num_updates_pretrain): #num_updates_pretrain = num_epoch = 100
-                        num_iteration_feature = int(mem_size / batch_size)
-                        shuffle_index = np.arange(nnet_params['replay_memory_size'])
-                        np.random.shuffle(shuffle_index)
-                        for itr in range(num_iteration_feature):
-                            if TTN:
-                                loss = nn.learn_nn_feature_fqi(itr, shuffle_index)
-                                print("Loss: ", loss.item())
+                    if TTN:
+                        loss = nn.learn()
 
-                            else:
-                                loss = nn.learn_nn_feature(itr, shuffle_index)
-                                print("Loss: ", loss.item())
+                    else:  # DQN
+                        loss = nn.learn()
 
                     # run_losses.append(loss.detach())
 
@@ -468,13 +457,12 @@ def train_online(data_dir, starting_state_path,alg_type,
     np.save(files_name + 'hyperparam_final_stdvalues', np.std(hyperparam_values, axis=0))
     np.save(files_name + 'hyperparam_final_stdepisodes', np.std(hyperparam_episodes, axis=0))
 
-
-
-######################################################
-def train_offline_online(data_dir, starting_state_path, alg_type, hyper_num, data_length_num, mem_size, num_rep, offline,
-                 fqi_rep_num, num_step_ratio_mem, en,
-                 feature, method_sarsa, num_epi_per_itr,
-                 fqi_reg_type, initial_batch, rnd, num_updates_pretrain, epsilon_stop_training, status):
+def train_offline_online(data_dir, starting_state_path, alg_type, 
+                         hyper_num, data_length_num, mem_size, num_rep, offline,
+                         fqi_rep_num, num_step_ratio_mem, en,
+                         feature, method_sarsa, num_epi_per_itr,
+                         fqi_reg_type, initial_batch, rnd, 
+                         num_updates_pretrain, epsilon_stop_training, status):
 
     print("offline_online", hyper_num, en,mem_size)
 
@@ -566,7 +554,7 @@ def train_offline_online(data_dir, starting_state_path, alg_type, hyper_num, dat
                      }
 
     ## TTN
-    nnet_params = {"loss_features": 'reward',  # "combined_mstde_next_reward", "combined_mstde_next_state", "reward", next_state, semi_MSTDE
+    nnet_params = {"loss_features": 'next_state',  # "combined_mstde_next_reward", "combined_mstde_next_state", "reward", next_state, semi_MSTDE
                    "beta1": 0.0,
                    "beta2": 0.99,
                    "eps_init": 1.0,
@@ -731,15 +719,6 @@ def train_offline_online(data_dir, starting_state_path, alg_type, hyper_num, dat
 
         for itr in range(1):
             if not os.path.isfile("feature_{}_{}_{}".format(alg, en, mem_size) + ".pt"): # look for checkpoint.
-
-                # if TTN:
-                #     # offline part.
-                #     nn.loss_features = "combined_mstde_next_state"
-                #     loss = nn.learn()
-
-                # else:  # DQN
-                #     loss = nn.learn()
-
                 batch_size = 64
                 for j in range(num_updates_pretrain): #num_updates_pretrain = num_epoch = 100
                     num_iteration_feature = int(mem_size / batch_size)
@@ -750,7 +729,7 @@ def train_offline_online(data_dir, starting_state_path, alg_type, hyper_num, dat
 
                         if TTN:
                             # offline part.
-                            nn.loss_features = "combined_mstde_next_state"
+                            nn.loss_features = "next_state"
                             loss = nn.learn_nn_feature_fqi(itr, shuffle_index)
                             print("Loss: ", loss.item())
 
@@ -784,9 +763,7 @@ def train_offline_online(data_dir, starting_state_path, alg_type, hyper_num, dat
                     nn.q_next.load_state_dict(
                         T.load("feature_next_{}_{}_{}".format(alg, en, mem_size) + ".pt"))
 
-            ##
             ## end of offline step
-
             run_avgreturns = []
             run_avgvals = []
             run_avgepisode_length = []
@@ -814,9 +791,7 @@ def train_offline_online(data_dir, starting_state_path, alg_type, hyper_num, dat
             i = 0
 
             while episodes < num_epi_per_itr + 1:
-
                 i += 1
-
                 if done:
                     run_returns.append(ret)
                     run_vals.append(val)
@@ -870,21 +845,15 @@ def train_offline_online(data_dir, starting_state_path, alg_type, hyper_num, dat
                     else:
                         nn.memory.store_transition(prev_state, np.squeeze(prev_action), reward, state, int(done))
 
-                    batch_size = 64
-                    for _ in range(num_updates_pretrain): #num_updates_pretrain = num_epoch = 100
-                        num_iteration_feature = int(mem_size / batch_size)
-                        shuffle_index = np.arange(nnet_params['replay_memory_size'])
-                        np.random.shuffle(shuffle_index)
-                        for itr in range(num_iteration_feature):
-                            if TTN:
-                                # online part
-                                nn.loss_features = "semi_MSTDE"
-                                loss = nn.learn_nn_feature_fqi(itr, shuffle_index)
-                                print("Loss: ", loss.item())
+                    if TTN:
+                        # online part
+                        nn.loss_features = "combined_mstde_next_state"
+                        loss = nn.learn()
 
-                            else:
-                                loss = nn.learn_nn_feature(itr, shuffle_index)
-                                print("Loss: ", loss.item())
+                    else:  # DQN
+                        loss = nn.learn()
+
+                    # run_losses.append(loss.detach())
 
                 # do one step in the environment
                 episode_length += 1
@@ -1156,13 +1125,7 @@ def train_offline(data_dir, starting_state_path, alg_type, hyper_num, data_lengt
         with open(log_file + ".txt", 'w') as f:
             print("Start! Seed: {}".format(rand_seed), file=f)
 
-        saved_state_list = saved_state_list_all[rep * num_epi_per_itr:rep * num_epi_per_itr + num_epi_per_itr]
-
-        #############################################
-        start_run_time = time.perf_counter()
-
         if TTN:
-
             nn = TTNAgent_online_offline_mix(gamma, nnet_params=nnet_params, other_params=params,
                                              input_dims=input_dim, num_units_rep=128, dir=data_dir, offline=offline,
                                              num_tiling=16, num_tile=4, method_sarsa=method_sarsa,
@@ -1172,7 +1135,6 @@ def train_offline(data_dir, starting_state_path, alg_type, hyper_num, data_lengt
             nn = DQNAgent(gamma, q_nnet_params, params, input_dims=input_dim, dir=data_dir, status=status)
 
         if initial_batch == False:
-
             if alg == 'dqn' or (TTN and nnet_params['replay_memory_size'] > 0):
                 print("initialize buffer")
                 frame_history = []
@@ -1221,22 +1183,14 @@ def train_offline(data_dir, starting_state_path, alg_type, hyper_num, data_lengt
         run_losses = []
 
         for itr in range(1):
-
             ## do offline-step update before running the agent
-            ##
             if not os.path.isfile("feature_{}_{}_{}".format(alg, en, mem_size) + ".pt"):
-
-                # if TTN:
-                #     loss = nn.learn()
-
-                # else:  # DQN
-                #     loss = nn.learn()
-
                 batch_size = 64
                 for j in range(num_updates_pretrain): #num_updates_pretrain = num_epoch = 100
                     num_iteration_feature = int(mem_size / batch_size)
                     shuffle_index = np.arange(nnet_params['replay_memory_size'])
                     np.random.shuffle(shuffle_index)
+
                     for itr in range(num_iteration_feature):
                         if TTN:
                             loss = nn.learn_nn_feature_fqi(itr, shuffle_index)
@@ -1314,8 +1268,8 @@ def train_offline(data_dir, starting_state_path, alg_type, hyper_num, data_lengt
                     run_avgepisode_length.append(episode_length)
 
                     print(episodes, i, round(val, 2), ret, "number episode from 10:", count_10epi,
-                          "average over 10 episode:", round(np.mean(run_avgreturns), 3),
-                          "average return across last 100 episodes:", round(np.mean(run_returns[-100:]), 3),
+                          "avegar over 10 episode:", round(np.mean(run_avgreturns), 3),
+                          "avegare return across last 100 episodes:", round(np.mean(run_returns[-100:]), 3),
                           "state values:", (q_values_episode / episode_length), episode_length)
 
                     count_10epi += 1
